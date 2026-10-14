@@ -16,6 +16,7 @@ import os
 import urllib.error
 import urllib.request
 from typing import Any
+from urllib.parse import quote
 
 from mcp.server.fastmcp import FastMCP
 
@@ -77,7 +78,6 @@ def list_games() -> str:
 @mcp.tool()
 def get_game(game_key: str) -> str:
     """Get full detail of one game: state, players, round, recent narration."""
-    from urllib.parse import quote
     result = _call("GET", f"/api/games/{quote(game_key, safe='')}")
     return _clip(result)
 
@@ -85,27 +85,27 @@ def get_game(game_key: str) -> str:
 @mcp.tool()
 def get_characters(game_key: str) -> str:
     """Get character sheets of all players in a game (HP, sanity, skills...)."""
-    from urllib.parse import quote
     result = _call("GET", f"/api/games/{quote(game_key, safe='')}/characters")
     return _clip(result)
 
 
 @mcp.tool()
-def act(game_key: str, action_text: str, confirm: bool = False) -> str:
-    """Submit a player action. This is THE main tool: describe what your
-    character does in natural language; the engine decides dice, rules and
-    returns the GM narration plus any check results.
+def act(game_key: str, action_text: str, confirm: bool = False, actor: str = "") -> str:
+    """Submit a player action. THE main tool: describe what your character does
+    in natural language; the engine decides dice and rules, then returns the GM
+    narration plus any check results.
 
     Args:
-        game_key: the game identifier from list_games.
+        game_key: game identifier from list_games.
         action_text: what your character does / says.
         confirm: set True only when the engine asks you to confirm a roll.
+        actor: your player user_id; leave empty to use the bridge default.
     """
-    from urllib.parse import quote
     body: dict[str, Any] = {"text": action_text, "confirm": bool(confirm)}
     if confirm:
         body["server_roll"] = True
-    result = _call("POST", f"/api/games/{quote(game_key, safe='')}/action", body=body)
+    result = _call("POST", f"/api/games/{quote(game_key, safe='')}/action", body=body,
+                   actor=actor or None)
     if not isinstance(result, dict):
         return _clip(result)
     if result.get("ok") is False:
@@ -125,29 +125,28 @@ def act(game_key: str, action_text: str, confirm: bool = False) -> str:
 
 
 @mcp.tool()
-def ask_kp(game_key: str, question: str) -> str:
+def ask_kp(game_key: str, question: str, actor: str = "") -> str:
     """Ask the GM (KP) a read-only out-of-game question, e.g. rules checks."""
-    from urllib.parse import quote
     result = _call(
         "POST",
         f"/api/games/{quote(game_key, safe='')}/kp-question",
         body={"question": question, "visibility": "party"},
+        actor=actor or None,
     )
     return _clip(result)
 
 
 @mcp.tool()
-def private_log(game_key: str) -> str:
-    """Read your character's private log (clues only you received)."""
-    from urllib.parse import quote
-    result = _call("GET", f"/api/games/{quote(game_key, safe='')}/private-log")
+def private_log(game_key: str, actor: str = "") -> str:
+    """Read a character's private log (clues only that player received)."""
+    result = _call("GET", f"/api/games/{quote(game_key, safe='')}/private-log",
+                   actor=actor or None)
     return _clip(result)
 
 
 @mcp.tool()
 def available_actions(game_key: str) -> str:
     """List currently available mechanical actions in this game."""
-    from urllib.parse import quote
     result = _call("GET", f"/api/games/{quote(game_key, safe='')}/available-actions")
     return _clip(result)
 
