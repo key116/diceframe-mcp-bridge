@@ -18,7 +18,10 @@ import urllib.request
 from typing import Any
 from urllib.parse import quote
 
+import uvicorn
 from mcp.server.fastmcp import FastMCP
+from starlette.applications import Starlette
+from starlette.routing import Mount
 
 BASE_URL = os.environ.get("DICEFRAME_BASE_URL", "").strip().rstrip("/")
 BOT_TOKEN = os.environ.get("DICEFRAME_BOT_TOKEN", "").strip()
@@ -151,5 +154,12 @@ def available_actions(game_key: str) -> str:
     return _clip(result)
 
 
+def build_app() -> Starlette:
+    """Mount the MCP streamable-http app explicitly at /mcp so the endpoint
+    path does not depend on the mcp SDK version defaults."""
+    app = mcp.streamable_http_app()
+    return Starlette(routes=[Mount("/mcp", app=app)])
+
+
 if __name__ == "__main__":
-    mcp.run(transport="streamable-http", host="0.0.0.0", port=PORT)
+    uvicorn.run(build_app(), host="0.0.0.0", port=PORT)
