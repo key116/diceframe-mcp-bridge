@@ -1,3 +1,4 @@
 mcp==1.12.4
+pydantic==2.11.7
 uvicorn>=0.30
 starlette>=0.40,<1.0
