@@ -160,11 +160,16 @@ async def _healthz(request):
 
 
 def build_app() -> Starlette:
-    """Mount the MCP streamable-http app at /mcp plus a plain /healthz probe."""
+    """Serve /healthz plus the MCP streamable-http app.
+
+    The MCP app's own route is already "/mcp" (FastMCP default), so we mount
+    it at the root instead of at "/mcp" (mounting at "/mcp" would double the
+    prefix and every request would 404).
+    """
     mcp_app = mcp.streamable_http_app()
     return Starlette(routes=[
         Route("/healthz", _healthz),
-        Mount("/mcp", app=mcp_app),
+        Mount("/", app=mcp_app),
     ])
 
 
