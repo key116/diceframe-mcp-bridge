@@ -72,6 +72,23 @@ def _clip(text: Any, limit: int = 6000) -> str:
     return s if len(s) <= limit else s[:limit] + "\n...(截断)"
 
 
+def _fingerprint(s: str) -> str:
+    if not s:
+        return "(空)"
+    return f"长度{len(s)} 开头:{s[:4]!r} 结尾:{s[-4:]!r}"
+
+
+@mcp.tool()
+def debug_env() -> str:
+    """诊断用：报告桥的环境变量是否填对（只看形状，不泄露完整密钥）。"""
+    return "\n".join([
+        f"DICEFRAME_BASE_URL = {_fingerprint(BASE_URL)}",
+        f"DICEFRAME_BOT_TOKEN = {_fingerprint(BOT_TOKEN)}",
+        f"DICEFRAME_ACTOR = {_fingerprint(DEFAULT_ACTOR)}",
+        "提示：BASE_URL 应以 https:// 开头；BOT_TOKEN 若显示为 'DICF...' 开头，说明 key/value 填反了。",
+    ])
+
+
 @mcp.tool()
 def ping() -> str:
     """Check the bridge can reach the DiceFrame server and the bot token works."""
