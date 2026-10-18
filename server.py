@@ -21,7 +21,8 @@ from urllib.parse import quote
 import uvicorn
 from mcp.server.fastmcp import FastMCP
 from starlette.applications import Starlette
-from starlette.routing import Mount
+from starlette.responses import PlainTextResponse
+from starlette.routing import Mount, Route
 
 BASE_URL = os.environ.get("DICEFRAME_BASE_URL", "").strip().rstrip("/")
 BOT_TOKEN = os.environ.get("DICEFRAME_BOT_TOKEN", "").strip()
@@ -154,12 +155,19 @@ def available_actions(game_key: str) -> str:
     return _clip(result)
 
 
+async def _healthz(request):
+    return PlainTextResponse("ok")
+
+
 def build_app() -> Starlette:
-    """Mount the MCP streamable-http app explicitly at /mcp so the endpoint
-    path does not depend on the mcp SDK version defaults."""
-    app = mcp.streamable_http_app()
-    return Starlette(routes=[Mount("/mcp", app=app)])
+    """Mount the MCP streamable-http app at /mcp plus a plain /healthz probe."""
+    mcp_app = mcp.streamable_http_app()
+    return Starlette(routes=[
+        Route("/healthz", _healthz),
+        Mount("/mcp", app=mcp_app),
+    ])
 
 
 if __name__ == "__main__":
+    print(f"[diceframe-mcp-bridge] starting on port {PORT}, upstream={BASE_URL or '(unset)'}")
     uvicorn.run(build_app(), host="0.0.0.0", port=PORT)
