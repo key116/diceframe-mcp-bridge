@@ -9,6 +9,10 @@ Config via environment variables:
   DICEFRAME_BOT_TOKEN  Bot API token from DiceFrame 设置 -> Bot API
   DICEFRAME_ACTOR      default player user_id the bot speaks as
   PORT                 listen port (default 8000)
+
+Endpoints:
+  /mcp      MCP streamable-http endpoint (what Claude/Kimi connect to)
+  /healthz  plain-text liveness probe (ok)
 """
 
 import json
@@ -18,18 +22,21 @@ import urllib.request
 from typing import Any
 from urllib.parse import quote
 
-import uvicorn
 from mcp.server.fastmcp import FastMCP
-from starlette.applications import Starlette
+from starlette.requests import Request
 from starlette.responses import PlainTextResponse
-from starlette.routing import Mount, Route
 
 BASE_URL = os.environ.get("DICEFRAME_BASE_URL", "").strip().rstrip("/")
 BOT_TOKEN = os.environ.get("DICEFRAME_BOT_TOKEN", "").strip()
 DEFAULT_ACTOR = os.environ.get("DICEFRAME_ACTOR", "").strip()
 PORT = int(os.environ.get("PORT", "8000"))
 
-mcp = FastMCP("diceframe")
+mcp = FastMCP("diceframe", host="0.0.0.0", port=PORT)
+
+
+@mcp.custom_route("/healthz", methods=["GET"])
+async def _healthz(request: Request) -> PlainTextResponse:
+    return PlainTextResponse("ok")
 
 
 def _call(method: str, path: str, body: dict | None = None, actor: str | None = None) -> Any:
@@ -155,24 +162,7 @@ def available_actions(game_key: str) -> str:
     return _clip(result)
 
 
-async def _healthz(request):
-    return PlainTextResponse("ok")
-
-
-def build_app() -> Starlette:
-    """Serve /healthz plus the MCP streamable-http app.
-
-    The MCP app's own route is already "/mcp" (FastMCP default), so we mount
-    it at the root instead of at "/mcp" (mounting at "/mcp" would double the
-    prefix and every request would 404).
-    """
-    mcp_app = mcp.streamable_http_app()
-    return Starlette(routes=[
-        Route("/healthz", _healthz),
-        Mount("/", app=mcp_app),
-    ])
-
-
 if __name__ == "__main__":
-    print(f"[diceframe-mcp-bridge] starting on port {PORT}, upstream={BASE_URL or '(unset)'}")
-    uvicorn.run(build_app(), host="0.0.0.0", port=PORT)
+    print(f"[diceframe-mcp-bridge] MCP at /mcp, healthz at /healthz, "
+          f"port {PORT}, upstream={BASE_URL or '(unset)'}")
+    mcp.run(transport="streamable-http")
